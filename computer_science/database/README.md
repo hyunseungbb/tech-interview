@@ -19,6 +19,44 @@
 
 
 
+### db 커넥션 풀에 과부하가 걸리는 경우 어떻게 해야 하는가?(DBCP Connection Pool 연결 대기 지연 현상)
+
+- db connection pool이 부족한 상황에서는 어떻게 해야 할까
+
+1. 가장 쉬운 방법은 `maxActive` 즉, 커넥션 풀의 개수를 늘리는 것
+   - 하지만 무조건 커넥션 개수를 크게 설정할 수 없는 상황이 많다. (DBMS 리소스는 다른 서비스와 공유하는 경우)
+
+2. 따라서 예상 접속자 수, 실제 부하 등에 따라 스레드 풀의 적절한 `maxWait` 값을 설정해야 한다.
+
+   - maxWait 
+
+     - 커넥션 풀 안의 커넥션이 고갈됐을 때 커넥션 반납을 대기하는 시간.
+
+     - maxWait이 너무 높다면?
+       -  사용자 입장에서 클릭 후 2~3초 내에 반응이 없으면 페이지를 새로고침하기 때문에 커넥션 반납을 열심히 대기해도 아무 소용이 없다.
+       - 오히려 많은 유저가 F5로 계속 요청을 하면 대기중인 요청이 쌓이게 되어 장애가 발생할 수 있다.
+
+     - maxWait을 너무 작게 설정하면?
+       - 여분의 스레드가 없을 때마다 예외 처리를 통한 에러 페이지가 반환된다.
+       - 물건 선택하고 주문 버튼 눌렀는데 에러 페이지 뜨면 욕 나오는 상황이 발생한다.
+
+3. 적절한 maxWait을 설정하기 위해 고려할 점들
+
+   - TPS(Transaction Per Seconds)
+   - WAS에서 처리 가능한 스레드 개수
+     - Tomcat은 내부에 스레드 풀을 가지고 사용자 요청에 대응한다.
+
+- 해결 방법
+  - 서비스 특징에 맞게 maxWait 설정하기
+  - DB Pool을 여유 있게 두기
+  - 성능 테스트를 반드시 해야 한다.
+
+- reference
+  - https://d2.naver.com/helloworld/5102792
+  - https://engineering-skcc.github.io/cloud/tomcat/apache/DB-Pool-For-Event/
+
+
+
 ### 정규화
 
 - 관계형 데이터베이스에서 중복을 최소화하기 위해 데이터를 구조화하는 작업.
@@ -68,9 +106,35 @@
 
 일반적으로 B+tree알고리즘을 사용해서 인덱스를 관리한다.
 
+
+
+- Clustered Index
+  - 순서대로 정렬되어 있다.
+  - 범위검색에 강력하다
+  - 삽입에는 취약하다
+  - PK랑 아주 유사 거의 같다. - Auto_Increment
+- Non-Clustered Index
+  - 약한 참조로 되어있다
+  - 순서 상관 없음
+  - 추가 저장 공간 필요(약 10%)
+  - Insert시 추가 작업 필요 (인덱스 생성 작업)
+  - Cardinality - 인덱스의 성능 평가 기준
+
+
+
 #### [B-tree 알고리즘](https://velog.io/@emplam27/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0-%EA%B7%B8%EB%A6%BC%EC%9C%BC%EB%A1%9C-%EC%95%8C%EC%95%84%EB%B3%B4%EB%8A%94-B-Tree)
 
+- self-balancing search tree
+  - 모든 리프노드들이 같은 레벨을 가질 수 있도록 자동으로 밸런스를 맞추는 트리.
+- 특징
+  - 최대 M개의 자식을 가질 수 있는 B트리를 M차 B트리라고 한다.
+  - 최소차수 t는 자식 수의 하한값을 의미하며, `M = 2t - 1`을 만족한다.
+  - 노드의 키가 x개라면 자식의 수는 x+1 개이다.
+
 - 동등관계에 특화된 해시테이블과 달리 범위 탐색에 특화되어 있다.
+- 이진 트리와의 차이점
+  - 
+
 
 #### [B+tree 알고리즘](https://velog.io/@emplam27/%EC%9E%90%EB%A3%8C%EA%B5%AC%EC%A1%B0-%EA%B7%B8%EB%A6%BC%EC%9C%BC%EB%A1%9C-%EC%95%8C%EC%95%84%EB%B3%B4%EB%8A%94-B-Plus-Tree)
 
@@ -78,3 +142,23 @@
 
 - Cardinality가 낮은 칼럼에 인덱스 효과를 기대하기 어려운 이유
   - 중복된 값이 많아질수록 B-tree를 따라가는 데 조작이 증가하기 때문에
+
+
+
+- Advanced
+  - 실행계획
+  - B-tree
+  - Page in InnoDB
+  - cardinality
+  - composite key
+  - innodb_buffer_poll_size
+  - log_throttle_queries_not_using_indexes
+
+
+
+- reference
+  - https://www.youtube.com/watch?v=NkZ6r6z2pBg
+  - https://www.geeksforgeeks.org/introduction-of-b-tree-2/?ref=gcse
+
+
+
